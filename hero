@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+from pytube import Playlist, YouTube
+import os
+import sys
+import argparse
+
+class YtHero:
+    def __init__(self, path: str = "download") -> None:  
+        TITLE = "YT Hero"
+        print(f"{TITLE:-^40}")
+        self.path = path
+        if not os.path.exists(self.path):
+            os.makedirs(self.path)
+    
+    def playlist(self, url: str) -> list:
+        playlist = Playlist(url)
+        videos = []
+        for video in playlist.video_urls[:3]:
+            videos.append(video)
+        return videos
+
+    def download(self, url: str, only_audio: bool = False) -> None:
+        video = YouTube(url)
+        if only_audio:
+            download = YouTube(url).streams.filter(only_audio=True).first()
+        else:
+            download = YouTube(url).streams.filter(progressive=True).get_highest_resolution()
+        print(f"Downloading {download.title}...")
+        output = download.download(output_path=self.path)
+        if only_audio:
+            base, ext = os.path.splitext(output)
+            name = base + ".mp3"
+            os.rename(output, name)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Yt Hero", prog="hero")
+    youtube = parser.add_subparsers(title="YouTube", dest="command", description="Download a playlist or video from YouTube")
+
+    playlist = youtube.add_parser("playlist", help="Download a playlist")
+    playlist.add_argument("--url", type=str, dest="playlist_url", required=True, metavar="URL", help="URL to the playlist which should be downloaded")
+    playlist.add_argument("--output", type=str, dest="playlist_output", default="download", metavar="Path", help="Path where to save the download")
+    playlist.add_argument("--audio", action="store_true", dest="playlist_audio", help="Only audio")
+
+    video = youtube.add_parser("video", help="Download a video")
+    video.add_argument("--url", type=str, dest="video_url", required=True, metavar="YouTube URL", help="URL to the video which should be downloaded")
+    video.add_argument("--output", type=str, dest="video_output", default="download", metavar="Path", help="Path where to save the download")
+    video.add_argument("--audio", action="store_true", dest="video_audio", help="Only audio")
+    args = parser.parse_args()
+
+    if args.command == "video":
+        hero = YtHero(path=args.video_output)
+        if args.video_audio:
+            hero.download(url=args.video_url, only_audio=True)
+        else:
+            hero.download(url=args.video_url)
+    if args.command == "playlist":
+        hero = YtHero(path=args.playlist_output)
+        videos = hero.playlist(url=args.playlist_url)
+        if args.playlist_audio:
+            for video in videos:
+                hero.download(url=video, only_audio=True)
+        else:
+            for video in videos:
+                hero.download(url=video)
